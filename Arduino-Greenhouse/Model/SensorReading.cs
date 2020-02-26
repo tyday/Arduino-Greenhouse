@@ -1,4 +1,5 @@
-﻿using SQLite;
+﻿using Newtonsoft.Json;
+using SQLite;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,8 @@ namespace Arduino_Greenhouse.Model
         public int light { get; set; }
         public float temp1 { get; set; }
         public float temp2 { get; set; }
-        public float RH1 { get; set; }
-        public float RH2 { get; set; }
+        public float rh1 { get; set; }
+        public float rh2 { get; set; }
 
         //public DateTime timestamp { get; set; } = DateTime.UtcNow;
         public long timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeSeconds();

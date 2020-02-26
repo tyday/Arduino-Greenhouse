@@ -1,10 +1,13 @@
 ﻿using Arduino_Greenhouse.Model;
 using Newtonsoft.Json;
+using RestSharp;
+using RestSharp.Authenticators;
 using SQLite;
 using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -22,18 +25,23 @@ namespace Arduino_Greenhouse
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
+    
     public partial class MainWindow : Window
     {
         SerialPort ComPort = new SerialPort();
 
         delegate void SetTextCallback(string text);
         string InputData = String.Empty;
+        SensorReading[] ArraySensorReadings = new SensorReading[6];
+        int readingCount = 0;
+        bool uploadToServer = false;
+
 
         public MainWindow()
         {
             InitializeComponent();
-            ComPort.DataReceived +=
-              new System.IO.Ports.SerialDataReceivedEventHandler(port_DataReceived_1);
+            ComPort.DataReceived += new SerialDataReceivedEventHandler(port_DataReceived_1);
+            
         }
 
         private void btnGetPorts_Click(object sender, RoutedEventArgs e)
@@ -65,12 +73,7 @@ namespace Arduino_Greenhouse
             {
                 btnConnect.Content = "Close";
                 ComPort.PortName = Convert.ToString(cboPorts.Text);
-                //ComPort.BaudRate = Convert.ToInt32(cboBaudRate.Text);
                 ComPort.BaudRate = 9600;
-                //ComPort.DataBits = Convert.ToInt16(cboDataBits.Text);
-                //ComPort.StopBits = (StopBits)Enum.Parse(typeof(StopBits), cboStopBits.Text);
-                //ComPort.Handshake = (Handshake)Enum.Parse(typeof(Handshake), cboHandShaking.Text);
-                //ComPort.Parity = (Parity)Enum.Parse(typeof(Parity), cboParity.Text);
                 ComPort.Open();
             }
             else if (btnConnect.Content.ToString() == "Close")
@@ -82,7 +85,6 @@ namespace Arduino_Greenhouse
 
         private void port_DataReceived_1(object sender, SerialDataReceivedEventArgs e)
         {
-            //InputData = ComPort.ReadExisting();
             InputData = ComPort.ReadLine();
             if (!string.IsNullOrEmpty(InputData))
             {
@@ -90,6 +92,10 @@ namespace Arduino_Greenhouse
                 try
                 {
                     SensorReading sensorReading = JsonConvert.DeserializeObject<SensorReading>(InputData);
+                    ArraySensorReadings[readingCount]= sensorReading;
+                    readingCount++;
+                    if (readingCount == 6)
+                        UploadDataToServerAsync();
                     SetText(sensorReading);
 
                     string dbName = "Sensor.db";
@@ -109,6 +115,51 @@ namespace Arduino_Greenhouse
             }
         }
 
+        private async void UploadDataToServerAsync()
+        {
+            Console.WriteLine("Uploading to server");
+            int[] avglight = new int[6];
+            float[] avgRH1 = new float[6];
+            float[] avgRH2 = new float[6];
+            float[] temp1 = new float[6];
+            float[] temp2 = new float[6];
+            long[] timestamp = new long[6];
+
+            readingCount = 0;
+            for (int i = 0; i < 6; i++)
+            {
+                avglight[i] = ArraySensorReadings[i].light;
+                avgRH1[i] = ArraySensorReadings[i].rh1;
+                avgRH2[i] = ArraySensorReadings[i].rh2;
+                temp1[i] = ArraySensorReadings[i].temp1;
+                temp2[i] = ArraySensorReadings[i].temp2;
+                timestamp[i] = ArraySensorReadings[i].timestamp;
+            }
+            SensorReading averageReading = new SensorReading();
+            averageReading.light = (int)avglight.Average();
+            averageReading.rh1 = avgRH1.Average();
+            averageReading.rh2 = avgRH2.Average();
+            averageReading.temp1 = temp1.Average();
+            averageReading.temp2 = temp2.Average();
+            averageReading.timestamp = timestamp.Max();
+
+            Console.WriteLine($"light: {avglight.Average()}, RH1: {avgRH1.Sum()}");
+
+            if(uploadToServer==true)
+            {
+                var client = new RestClient("https://tylerday.net");
+                client.Authenticator = new HttpBasicAuthenticator(Privates.CREDENTIALS[0], Privates.CREDENTIALS[1]);
+
+                var request = new RestSharp.RestRequest("garden/api/readings.json", RestSharp.DataFormat.Json);
+                //request.JsonSerializer = new NewtonsoftJsonSerializer();
+                request.AddJsonBody(averageReading);
+                //var response = client.Get(request);
+                var response = client.Post(request);
+                Console.WriteLine(response);
+            }
+            
+        
+    }
         private void SetText(SensorReading sensorReading)
         {
             //Console.WriteLine(data);
@@ -120,10 +171,15 @@ namespace Arduino_Greenhouse
                 lblAL1.Content = sensorReading.light;
                 lblTemp1.Content = temp1;
                 lblTemp2.Content = temp2;
-                lblRH1.Content = String.Format("{0}% RH", sensorReading.RH1);
-                lblRH2.Content = String.Format("{0}% RH", sensorReading.RH2);
+                lblRH1.Content = String.Format("{0}% RH", sensorReading.rh1);
+                lblRH2.Content = String.Format("{0}% RH", sensorReading.rh2);
             });
             
+        }
+
+        private void cbUpload_Checked(object sender, RoutedEventArgs e)
+        {
+            uploadToServer = (bool)cbUpload.IsChecked;
         }
     }
 }

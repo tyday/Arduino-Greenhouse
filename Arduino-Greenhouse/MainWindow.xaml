@@ -26,5 +26,6 @@
         <Label x:Name="lblTemp2" Content="77 F" HorizontalAlignment="Center" Margin="0,160,0,0" VerticalAlignment="Top" FontSize="48" Grid.Column="1"/>
         <Label x:Name="lblRH2" Content="63% RH" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,224,0,0" FontSize="48" Grid.RowSpan="2" Grid.Column="1"/>
         <Label x:Name="lblAL2" Content="325 Light" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="237,328,235,0" FontSize="48" Height="180" Grid.RowSpan="2" Grid.Column="1" Visibility="Hidden"/>
+        <CheckBox x:Name="cbUpload" Content="Upload to server" HorizontalAlignment="Left" Margin="357,325,0,0" Grid.Row="1" VerticalAlignment="Top" Checked="cbUpload_Checked" Unchecked="cbUpload_Checked"/>
     </Grid>
 </Window>
